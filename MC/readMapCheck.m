@@ -2,11 +2,9 @@
 % READMAPCHECK read MapCheck text file
 % MAPCHECKARRAY=READMAPCHECK(FILEPATH,FILENAME) reads the MapCheck output 
 % text file specified by FILEPATH and FILENAME and stores it in the
-% MAPCHECKARRAY structure array. If no filepath or filename are specified,
-% the function will provide a GUI explorer window (for Windows machines
-% only) to search for the correct file.
+% MAPCHECKARRAY structure array. 
 %--------------------------------------------------------------------------
-function [mapCheckArray,headerInfo] = readMapCheck(filename)
+function [mapCheckArray,headerInfo, headerText] = readMapCheck(filename)
 
 
 %% Initialization
@@ -16,48 +14,21 @@ function [mapCheckArray,headerInfo] = readMapCheck(filename)
 headerInfo    = [];
 mapCheckArray = [];
 
-% %% MapCheck File Determination
-% %--------------------------------------------------------------------------
-% % Explanation here...
-% %--------------------------------------------------------------------------
-% switch nargin
-%     
-%     case 2
-%         filePath = varargin{1};
-%         fileName = varargin{2};
-%         
-%         % Check that filePath terminates in correct file separation character
-%         if ~strcmp(filePath(end),filesep)
-%             filePath = [filePath filesep];
-%         end
-%         
-%     case 1
-%         filePath = varargin{1};
-%         
-%         % Check that filePath terminates in correct file separation character
-%         if ~strcmp(filePath(end),filesep)
-%             filePath = [filePath filesep];
-%         end
-%         
-%         [fileName,filePath] = uigetfile([filePath '*.txt'], 'Please select MapCHECK file');
-%     case 0
-%         [fileName,filePath] = uigetfile('*.txt', 'Please select MapCHECK file');
-% 
-%     otherwise
-%          error('Too many input arguments');
-% end
-% 
-% % Check that filePath terminates in correct file separation character
-% if ~strcmp(filePath(end),filesep)
-%     filePath = [filePath filesep];
-% end
 
 %% Open File
 %--------------------------------------------------------------------------
 % Explanation here...
 %--------------------------------------------------------------------------
 fileID = fopen(filename);
+C = textscan(fileID,'%s','delimiter','\n');
+for i = 1:length(C{1}) 
+    if strcmp(C{1}(i),'Background') == 1; 
+           numHeaderRows = i + 1; 
+    end
+end
+fclose(fileID);
 
+fileID = fopen(filename);
 
 %% Read File
 %--------------------------------------------------------------------------
@@ -68,17 +39,18 @@ fileID = fopen(filename);
 %--------------------------------------------------------------------------
 % Explanation here...
 %--------------------------------------------------------------------------
-numHeaderRows    = 45;    % Hard-coded expectation of # of rows in header
+
 numInterDataRows = 5;     % Hard-coded expectation of # of inter-data rows
 numDataBlocks    = 7;     % Hard-coded expectation of # of data blocks
-
 headerTextCell   = textscan(fileID,'%s',numHeaderRows,'delimiter','\n');
 headerText       = char(headerTextCell{1});
 
 %--------------------------------------------------------------------------
 % Make Header Structure
 %--------------------------------------------------------------------------
-headerInfo = convertMapCheckHeader(headerText);
+[L , ~] = size(headerText);
+headerInfo = convertMapCheckHeader(headerText, L);
+
 %--------------------------------------------------------------------------
 % Read Data Blocks
 %--------------------------------------------------------------------------

@@ -35,8 +35,7 @@ function varargout = vmatqatool_OutputFcn(hObject, eventdata, handles)
 
     % Get default command line output from handles structure
     varargout{1} = handles.output;
-
-   
+  
 
 %% --- Executes on button press in select_patient.
 function select_patient_Callback(hObject, eventdata, handles) %#ok<*DEFNU>
@@ -64,12 +63,9 @@ function select_patient_Callback(hObject, eventdata, handles) %#ok<*DEFNU>
          RP_file = strcat(root_path, RP_filename.name);
         xcl_file = strcat(root_path, xcl_info.name);
     
-%                  [ MC ] = mapcheck_opener_V2( MC_file );
-%     [ TPS_dose] = open_doseplane( TPS_file );
       [~,~,raw] = xlsread(xcl_file, 'MapPhan dose scaled', 'B3:D33');
-   dose_scaling = double(cell2mat(raw(13,2)));
-%        TPS_dose = TPS_dose*dose_scaling;
-        
+      dose_scaling = double(cell2mat(raw(13,2)));
+
         ind_C = find(strcmp(raw,'CTX')==1);
         ind_D = find(strcmp(raw,'DTX')==1);
         ind_A = find(strcmp(raw,'AEX')==1);
@@ -82,18 +78,18 @@ function select_patient_Callback(hObject, eventdata, handles) %#ok<*DEFNU>
             machine_name = raw(ind_D);
         else
             machine_name = 'unknown';
-        end         
+        end    
+        
         machine_name = char(machine_name);
     
     guidata(hObject, handles);
 
-    function patient_root_path_CreateFcn(hObject, eventdata, handles) %#ok<*INUSD>
+function patient_root_path_CreateFcn(hObject, eventdata, handles) %#ok<*INUSD>
 
     if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
         set(hObject,'BackgroundColor','white');
     end
     
-
 
 %% --- Executes on button press in select_destination.
 function select_destination_Callback(hObject, eventdata, handles)
@@ -135,8 +131,7 @@ function upload_to_database_Callback(hObject, eventdata, handles)
         xcl_file = strcat(root_path, xcl_info.name);
 
         data_input_gui(root_path, destination, MC_file, TPS_file, RP_file, xcl_file, dbpath);
-        
-        
+             
 
 %% --- Executes on button press in select_database_path.
 function select_database_path_Callback(hObject, eventdata, handles)
@@ -155,7 +150,7 @@ function database_path_CreateFcn(hObject, eventdata, handles)
     if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
         set(hObject,'BackgroundColor','white');
     end
-    
+   
 
 %% --- Executes on button press in compute_gamma_analysis.
 function compute_gamma_analysis_Callback(hObject, eventdata, handles)
@@ -201,16 +196,10 @@ TPS_filename = dir(strcat(root_path,'\','RD*.dcm'));
 
         if isempty(ind_A) == 0
             machine_name = raw(ind_A);
-%             MC = MC*(0.9856);
-%             machine_name = 'AEX_scaled';
         elseif isempty(ind_C) == 0
             machine_name = raw(ind_C);
-%             MC = MC*(1.0009);
-%             machine_name = 'CTX_scaled';
         elseif isempty(ind_D) == 0
             machine_name = raw(ind_D);
-%             MC = MC*(1.0196);
-%             machine_name = 'DTX_scaled';
         else
             machine_name = 'unknown';
         end         
@@ -291,8 +280,6 @@ function pct_threshold_CreateFcn(hObject, eventdata, handles)
 function van_dyk_Callback(hObject, eventdata, handles)
     
     
-    
-    
 %% --- Executes on button press in compute_plan_metrics.
 function compute_plan_metrics_Callback(hObject, eventdata, handles)
 
@@ -304,24 +291,23 @@ RP_filename = dir(strcat(root_path,'\','RP*.dcm'));
        info = dicominfo(RP_file);
    numbeams = info.FractionGroupSequence.Item_1.NumberOfBeams;
 
-[ PLW, PM, PA, PAGW, PI, ~, ~, ~, ~, ~, ~, ~, ~, totalMU, ~, ~, ~, ~, ...
-  modulation_type, field_size_X, field_size_Y, mech_stability ] = calc_fluence_map_V3(RP_file);  
+[ data, ~, ~, ~, mech_stability ] = calc_fluence_map(RP_file);  
 
 data_planmetrics{1,1}  = numbeams;
-data_planmetrics{1,2}  = PLW;
-data_planmetrics{1,3}  = PA;
-data_planmetrics{1,4}  = PM;
-data_planmetrics{1,5}  = PI;
-data_planmetrics{1,6}  = PAGW;
-data_planmetrics{1,7}  = totalMU;
-data_planmetrics{1,8}  = modulation_type;
-data_planmetrics{1,9}  = field_size_X;
-data_planmetrics{1,10} = field_size_Y;
+data_planmetrics{1,2}  = data.PLW;
+data_planmetrics{1,3}  = data.PA;
+data_planmetrics{1,4}  = data.PM;
+data_planmetrics{1,5}  = data.PI;
+data_planmetrics{1,6}  = data.PAGW;
+data_planmetrics{1,7}  = data.totalMU;
+data_planmetrics{1,8}  = data.modulation_type;
+data_planmetrics{1,9}  = data.field_size_X;
+data_planmetrics{1,10} = data.field_size_Y;
 data_planmetrics{1,11} = mech_stability.plan_mean_deg_MU;
 data_planmetrics{1,12} = mech_stability.plan_bankA_mm_MU;
 data_planmetrics{1,13} = mech_stability.plan_bankB_mm_MU;
 
-data_planmetrics{1,14} = PI + 1*(((mech_stability.plan_bankA_mm_MU + mech_stability.plan_bankB_mm_MU)/2)*(mech_stability.plan_mean_deg_MU));
+data_planmetrics{1,14} = data.PI + 1*(((mech_stability.plan_bankA_mm_MU + mech_stability.plan_bankB_mm_MU)/2)*(mech_stability.plan_mean_deg_MU));
 
 
 
@@ -444,15 +430,11 @@ function batch_upload_path_CreateFcn(hObject, eventdata, handles)
         set(hObject,'BackgroundColor','white');
     end
 
-
 % --- Executes on button press in database_cleanup.
 function database_cleanup_Callback(hObject, eventdata, handles)
 
     DatabaseCleanup
     
-
-
-
 function scaling_factor_Callback(hObject, eventdata, handles)
 % hObject    handle to scaling_factor (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
