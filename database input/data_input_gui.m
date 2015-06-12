@@ -1,4 +1,4 @@
-function [ ] = data_input_gui(root_path, destination, MC_file, TPS_file, RP_file, xcl_file, dbpath)
+function [ ] = data_input_gui(root_path, destination, MC_file, TPS_file, RP_file, xcl_file, machine_name, dose_scaling, dbpath)
 
 %       Automated Gamma Analysis of Patient Specific IMRT QA at
 %                 The Mayo Clinic in Arizona
@@ -66,17 +66,16 @@ function [ ] = data_input_gui(root_path, destination, MC_file, TPS_file, RP_file
     
 
 
-   [ MC ] = mapcheck_opener_V2( MC_file);
-        MC = MC(2:end,2:end);
+ [ MC, mapCheckArray, ~, ~ ] = readMapCheck( MC_file );
+   MC            = MC(2:end,2:end);
         
    [ TPS ] = open_doseplane( TPS_file );
-    
+     TPS   = TPS*dose_scaling;
+     
     %% Pull Excel File Information
         [~,~,raw] = xlsread(xcl_file, 'MapPhan dose scaled', 'B3:D33');
-        dose_scaling = double(cell2mat(raw(13,2)));
-        TPS = TPS*dose_scaling;
-        
         plan_name = cell2mat(raw(3,1));
+        
         if isempty(plan_name) == 1 || isnumeric(plan_name) == 1
             plan_name = 'unknown';
         end
@@ -87,28 +86,7 @@ function [ ] = data_input_gui(root_path, destination, MC_file, TPS_file, RP_file
         name = strrep(name,'#','-');
         name = strrep(name,'.','-');
         name = strrep(name,':','-');
-        
-        ind_C = find(strcmp(raw,'CTX')==1);
-        ind_D = find(strcmp(raw,'DTX')==1);
-        ind_A = find(strcmp(raw,'AEX')==1);
-
-        if isempty(ind_A) == 0
-            machine_name = raw(ind_A);
-%             MC = MC*(0.9856);
-%             machine_name = 'AEX_scaled';
-        elseif isempty(ind_C) == 0
-            machine_name = raw(ind_C);
-%             MC = MC*(1.0009);
-%             machine_name = 'CTX_scaled';
-        elseif isempty(ind_D) == 0
-            machine_name = raw(ind_D);
-%             MC = MC*(1.0196);
-%             machine_name = 'DTX_scaled';
-        else
-            machine_name = 'unknown';
-        end         
-        machine_name = char(machine_name);
-        
+              
     %% Pull DICOM information
     
              info = dicominfo(TPS_file);
@@ -185,7 +163,7 @@ function [ ] = data_input_gui(root_path, destination, MC_file, TPS_file, RP_file
    
    %% Collect RP plan information, folder needs to contain IMRT QA plan RP*.dcm
 
-   [ PLW, PM, PA, PAGW, PI, ~, ~, ~, ~, ~, ~, ~, ~, totalMU, beamInfo, leaf_sequence, fluencemap, jaw, modulation_type, field_size_X, field_size_Y, mech_stability ] = calc_fluence_map_V3(RP_file);  %#ok<ASGLU>
+  [ data, beamInfo, leaf_sequence, fluencemap, mech_stability ] = calc_fluence_map(RP_file);    
 
    info = dicominfo(RP_file);
    plan_UID = info.SOPInstanceUID;  %#ok<NASGU>
@@ -194,10 +172,11 @@ function [ ] = data_input_gui(root_path, destination, MC_file, TPS_file, RP_file
    patient_ID = info.PatientID;
    patient_ID = strrep(patient_ID,'-','');
    fluencemap_filename = strcat(patient_ID,'-',date_stamp,'-',time_stamp(1:6),'-','planmetrics','.mat');
- 
    numbeams = info.FractionGroupSequence.Item_1.NumberOfBeams;
    
-   if PM > 1 || PM < 0
+   
+   
+   if data.PM > 1 || data.PM < 0
        movefile(root_path,failed_destination)
        PM = 2; %#ok<NASGU>
        display('Modulation Calculation Failed.')
@@ -221,20 +200,20 @@ function [ ] = data_input_gui(root_path, destination, MC_file, TPS_file, RP_file
         insert(conn,tablename_RTplans,colnames_RTplans,data_RTplan);
         close(conn)
             %% Insert planmetrics information
-                if PM ~= 2
+                if data.PM ~= 2
 
                     data_planmetrics{1,1}  = numbeams;
-                    data_planmetrics{1,2}  = PLW;
-                    data_planmetrics{1,3}  = PA;
-                    data_planmetrics{1,4}  = PM;
-                    data_planmetrics{1,5}  = PI;
-                    data_planmetrics{1,6}  = PAGW;
-                    data_planmetrics{1,7}  = totalMU;
+                    data_planmetrics{1,2}  = data.PLW;
+                    data_planmetrics{1,3}  = data.PA;
+                    data_planmetrics{1,4}  = data.PM;
+                    data_planmetrics{1,5}  = data.PI;
+                    data_planmetrics{1,6}  = data.PAGW;
+                    data_planmetrics{1,7}  = data.totalMU;
                     data_planmetrics{1,8}  = fluencemap_path;
                     data_planmetrics{1,9}  = fluencemap_filename;
-                    data_planmetrics{1,11} = modulation_type;
-                    data_planmetrics{1,12} = field_size_X;
-                    data_planmetrics{1,13} = field_size_Y;
+                    data_planmetrics{1,11} = data.modulation_type;
+                    data_planmetrics{1,12} = data.field_size_X;
+                    data_planmetrics{1,13} = data.field_size_Y;
                     data_planmetrics{1,14} = mech_stability.plan_mean_deg_MU;
                     data_planmetrics{1,15} = mech_stability.plan_bankA_mm_MU;
                     data_planmetrics{1,16} = mech_stability.plan_bankB_mm_MU;

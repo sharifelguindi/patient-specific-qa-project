@@ -10,7 +10,7 @@ dose(find(dose>10000)) = 0;                                              %#ok<FN
          StartPosition = info.ImagePositionPatient;
 
 %%
-% Checks whether image plan is Coronal or Saggittal, if niether, return
+% Checks whether image plan is Coronal or Saggittal, if neither, return
 % empty array
 
     if info.ImageOrientationPatient == [1;0;0;0;0;-1]       % Coronal Plane %

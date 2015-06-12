@@ -40,49 +40,94 @@ function varargout = vmatqatool_OutputFcn(hObject, eventdata, handles)
 %% --- Executes on button press in select_patient.
 function select_patient_Callback(hObject, eventdata, handles) %#ok<*DEFNU>
 
-    [path] = uigetdir('J:\PhysicsDosimetry\Eclipse TPS\Patient Specific QA');
-    handles.path = strcat(path,'\');
-    set(handles.patient_root_path,'string',handles.path);
-    
-    root_path = handles.path;
+ [path]       = uigetdir('J:\PhysicsDosimetry\Eclipse TPS\Patient Specific QA');
+ handles.path = strcat(path,'\');
+ set(handles.patient_root_path,'string',handles.path);
+ h = msgbox('Validating patient folder for analysis...');  
+ root_path    = handles.path;
   
-    TPS_filename = dir(strcat(root_path,'\','RD*.dcm'));
-     RP_filename = dir(strcat(root_path,'\','RP*.dcm'));
+ MC_filename  = dir(strcat(root_path,'\','*.txt'));
 
-     MC_filename = dir(strcat(root_path,'\','*.txt'));
-
+  if length(MC_filename) > 1;
+    MC_filename = dir(strcat(root_path,'\','mc*.txt'));
      if length(MC_filename) > 1;
-        MC_filename = dir(strcat(root_path,'\','mc*.txt'));
+         close(h)
+         h = msgbox('Measured Dose File is ambiguous, aborted loading');
+         return
+     end
+  end
+  
+ TPS_filename  = dir(strcat(root_path,'\','RD*.dcm'));
+ RP_filename   = dir(strcat(root_path,'\','RP*.dcm'));
+ xcl_filename  = dir(strcat(root_path,'\','*.xls'));
+ no_excel_flag = 0;
+ 
+ if isempty(xcl_filename) == 1 && length(MC_filename) >= 1 && length(TPS_filename) >= 1 && length(RP_filename) >= 1 
+     close(h)
+     h = msgbox('No Excel Sheet Found, Please manually enter scaling factor and machine name');
+     no_excel_flag = 1;
+ elseif isempty(MC_filename) == 1 || isempty(TPS_filename) == 1 || isempty(RP_filename) == 1 || isempty(xcl_filename) == 1
+     close(h)
+     h = msgbox('all files not found, some features may not work');
+ end
+  
+ MC_file      = strcat(root_path, MC_filename.name);
+     if isempty(MC_filename) == 1
+         set(handles.mc_okay_check,'string','NOT FOUND');
+     else
+         set(handles.mc_okay_check,'string',MC_filename.name);
      end
  
-        xcl_info = dir(strcat(root_path,'\','*.xls'));
+ TPS_file     = strcat(root_path, TPS_filename.name);
+     if isempty(TPS_filename) == 1
+         set(handles.RD_okay_check,'string','NOT FOUND');
+     else
+         set(handles.RD_okay_check,'string',TPS_filename.name);
+     end
+ 
+ RP_file      = strcat(root_path, RP_filename.name);
+     if isempty(RP_filename) == 1
+         set(handles.RP_okay_check,'string','NOT FOUND');
+     else
+         set(handles.RP_okay_check,'string',RP_filename.name);
+     end
+ 
+ xcl_file         = strcat(root_path, xcl_filename.name);
+ handles.xcl_file = xcl_file;
+ 
+     if isempty(xcl_filename) == 1
+         set(handles.excel_okay_check,'string','NOT FOUND');
+     else
+         set(handles.excel_okay_check,'string',xcl_filename.name);
+     end
+ if no_excel_flag == 0
+     [~,~,raw]    = xlsread(xcl_file, 'MapPhan dose scaled', 'B3:D33');
 
-         MC_file = strcat(root_path, MC_filename.name);
-         set(handles.mc_okay_check,'string',MC_filename.name);
-        TPS_file = strcat(root_path, TPS_filename.name);
-         RP_file = strcat(root_path, RP_filename.name);
-        xcl_file = strcat(root_path, xcl_info.name);
-    
-      [~,~,raw] = xlsread(xcl_file, 'MapPhan dose scaled', 'B3:D33');
-      dose_scaling = double(cell2mat(raw(13,2)));
+     dose_scaling = double(cell2mat(raw(13,2)));
 
-        ind_C = find(strcmp(raw,'CTX')==1);
-        ind_D = find(strcmp(raw,'DTX')==1);
-        ind_A = find(strcmp(raw,'AEX')==1);
+     ind_C        = find(strcmp(raw,'CTX')==1);
+     ind_D        = find(strcmp(raw,'DTX')==1);
+     ind_A        = find(strcmp(raw,'AEX')==1);
 
-        if isempty(ind_A) == 0
-            machine_name = raw(ind_A);
-        elseif isempty(ind_C) == 0
-            machine_name = raw(ind_C);
-        elseif isempty(ind_D) == 0
-            machine_name = raw(ind_D);
-        else
-            machine_name = 'unknown';
-        end    
-        
-        machine_name = char(machine_name);
-    
-    guidata(hObject, handles);
+     if isempty(ind_A) == 0
+        machine_name = raw(ind_A);
+     elseif isempty(ind_C) == 0
+        machine_name = raw(ind_C);
+     elseif isempty(ind_D) == 0
+        machine_name = raw(ind_D);
+     else
+        machine_name = 'unknown';
+     end    
+
+     machine_name = char(machine_name);
+     set(handles.machine_name,'string',machine_name);
+     set(handles.scaling_factor,'string',num2str(dose_scaling));
+     guidata(hObject, handles);
+     close(h)
+ else
+     guidata(hObject, handles);
+     close(h)
+ end
 
 function patient_root_path_CreateFcn(hObject, eventdata, handles) %#ok<*INUSD>
 
@@ -116,21 +161,20 @@ function upload_to_database_Callback(hObject, eventdata, handles)
           dbpath = get(handles.database_path,'string');
     TPS_filename = dir(strcat(root_path,'\','RD*.dcm'));
      RP_filename = dir(strcat(root_path,'\','RP*.dcm'));
-
      MC_filename = dir(strcat(root_path,'\','*.txt'));
-
+        xcl_file = handles.xcl_file;
+        
      if length(MC_filename) > 1;
         MC_filename = dir(strcat(root_path,'\','mc*.txt'));
      end
  
-        xcl_info = dir(strcat(root_path,'\','*.xls'));
-
          MC_file = strcat(root_path, MC_filename.name);
         TPS_file = strcat(root_path, TPS_filename.name);
          RP_file = strcat(root_path, RP_filename.name);
-        xcl_file = strcat(root_path, xcl_info.name);
+    machine_name = get(handles.machine_name,'string');
+    dose_scaling = str2double(get(handles.scaling_factor,'string'));
 
-        data_input_gui(root_path, destination, MC_file, TPS_file, RP_file, xcl_file, dbpath);
+        data_input_gui(root_path, destination, MC_file, TPS_file, RP_file, xcl_file, machine_name, dose_scaling, dbpath);
              
 
 %% --- Executes on button press in select_database_path.
@@ -157,19 +201,17 @@ function compute_gamma_analysis_Callback(hObject, eventdata, handles)
 
    root_path = get(handles.patient_root_path,'string'); 
 TPS_filename = dir(strcat(root_path,'\','RD*.dcm'));
-
-
  MC_filename = dir(strcat(root_path,'\','*.txt'));
  
  if length(MC_filename) > 1;
     MC_filename = dir(strcat(root_path,'\','mc*.txt'));
  end
- 
-    xcl_info = dir(strcat(root_path,'\','*.xls'));
-     MC_file = strcat(root_path, MC_filename.name);
+
+    MC_file = strcat(root_path, MC_filename.name);
     TPS_file = strcat(root_path, TPS_filename.name);
-    xcl_file = strcat(root_path, xcl_info.name);
-    
+
+   machine_name = get(handles.machine_name,'string');
+   dose_scaling = str2double(get(handles.scaling_factor,'string'));
               DTA = str2double(get(handles.DTA,'string'));
     dose_criteria = str2double(get(handles.pct_diff,'string'))/100;
         threshold = str2double(get(handles.pct_threshold,'string'))/100;
@@ -184,27 +226,10 @@ TPS_filename = dir(strcat(root_path,'\','RD*.dcm'));
             end
 
     
-         [ MC ] = mapcheck_opener_V2( MC_file );
+[ MC, ~, ~, ~ ] = readMapCheck( MC_file );
     [ TPS_dose] = open_doseplane( TPS_file );
-      [~,~,raw] = xlsread(xcl_file, 'MapPhan dose scaled', 'B3:D33');
-   dose_scaling = double(cell2mat(raw(13,2)));
        TPS_dose = TPS_dose*dose_scaling;
         
-        ind_C = find(strcmp(raw,'CTX')==1);
-        ind_D = find(strcmp(raw,'DTX')==1);
-        ind_A = find(strcmp(raw,'AEX')==1);
-
-        if isempty(ind_A) == 0
-            machine_name = raw(ind_A);
-        elseif isempty(ind_C) == 0
-            machine_name = raw(ind_C);
-        elseif isempty(ind_D) == 0
-            machine_name = raw(ind_D);
-        else
-            machine_name = 'unknown';
-        end         
-        machine_name = char(machine_name);
-
     [ gamma, ~, avg_dose_ratio, stdev_dose_ratio ] = gamma_analysis( TPS_dose, MC(2:end,2:end),DTA,dose_criteria,threshold,van_dyk ); 
 
     axes(handles.display_graph);
@@ -350,7 +375,9 @@ cla(handles.display_graph,'reset')
 axes(handles.display_graph);
 unfreezeColors;
 cla
+
 PI_leafspeed(:,1) = data(:,27).*data(:,26);
+length(data(:,1))
 C0 = 1;
 C1 = 3;
 classifier_values(:,1) = C0.*(((data(:,21)))) + C1.*(PI_leafspeed(:,1));
@@ -430,51 +457,23 @@ function batch_upload_path_CreateFcn(hObject, eventdata, handles)
         set(hObject,'BackgroundColor','white');
     end
 
-% --- Executes on button press in database_cleanup.
+%% --- Executes on button press in database_cleanup.
 function database_cleanup_Callback(hObject, eventdata, handles)
 
     DatabaseCleanup
     
 function scaling_factor_Callback(hObject, eventdata, handles)
-% hObject    handle to scaling_factor (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
 
-% Hints: get(hObject,'String') returns contents of scaling_factor as text
-%        str2double(get(hObject,'String')) returns contents of scaling_factor as a double
-
-
-% --- Executes during object creation, after setting all properties.
 function scaling_factor_CreateFcn(hObject, eventdata, handles)
-% hObject    handle to scaling_factor (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    empty - handles not created until after all CreateFcns called
 
-% Hint: edit controls usually have a white background on Windows.
-%       See ISPC and COMPUTER.
 if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
     set(hObject,'BackgroundColor','white');
 end
 
-
-
 function machine_name_Callback(hObject, eventdata, handles)
-% hObject    handle to machine_name (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
 
-% Hints: get(hObject,'String') returns contents of machine_name as text
-%        str2double(get(hObject,'String')) returns contents of machine_name as a double
-
-
-% --- Executes during object creation, after setting all properties.
 function machine_name_CreateFcn(hObject, eventdata, handles)
-% hObject    handle to machine_name (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    empty - handles not created until after all CreateFcns called
 
-% Hint: edit controls usually have a white background on Windows.
-%       See ISPC and COMPUTER.
 if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
     set(hObject,'BackgroundColor','white');
 end
