@@ -163,7 +163,7 @@ function [ ] = data_input_gui(root_path, destination, MC_file, TPS_file, RP_file
    
    %% Collect RP plan information, folder needs to contain IMRT QA plan RP*.dcm
 
-  [ data, beamInfo, leaf_sequence, fluencemap, mech_stability ] = calc_fluence_map(RP_file);    
+  [ data, beamInfo, leaf_sequence, fluencemap, mech_stability ] = calc_fluence_map(RP_file);     %#ok<ASGLU>
 
    info = dicominfo(RP_file);
    plan_UID = info.SOPInstanceUID;  %#ok<NASGU>
@@ -177,8 +177,7 @@ function [ ] = data_input_gui(root_path, destination, MC_file, TPS_file, RP_file
    
    
    if data.PM > 1 || data.PM < 0
-       movefile(root_path,failed_destination)
-       PM = 2; %#ok<NASGU>
+         PM = 2; %#ok<NASGU>
        display('Modulation Calculation Failed.')
        return
    end  
@@ -230,9 +229,38 @@ function [ ] = data_input_gui(root_path, destination, MC_file, TPS_file, RP_file
     
       else 
           
-        display('Plan information is already in database');
-        eval(['RTplanID = fetch(conn,''SELECT RTplanID FROM RTplans WHERE plan_UID=','"',plan_UID_plan,'"',''');']);
-        FK_RTplans_measurements = int64(cell2mat(RTplanID));
+        eval(['planmetricID = fetch(conn,''SELECT planmetricID FROM planmetrics WHERE FK_RTplans_planmetrics=','"', num2str(cell2mat(RTplanID)) ,'"',''');']); 
+        if isempty(planmetricID) == 1
+               if data.PM ~= 2
+
+                    data_planmetrics{1,1}  = numbeams;
+                    data_planmetrics{1,2}  = data.PLW;
+                    data_planmetrics{1,3}  = data.PA;
+                    data_planmetrics{1,4}  = data.PM;
+                    data_planmetrics{1,5}  = data.PI;
+                    data_planmetrics{1,6}  = data.PAGW;
+                    data_planmetrics{1,7}  = data.totalMU;
+                    data_planmetrics{1,8}  = fluencemap_path;
+                    data_planmetrics{1,9}  = fluencemap_filename;
+                    data_planmetrics{1,11} = data.modulation_type;
+                    data_planmetrics{1,12} = data.field_size_X;
+                    data_planmetrics{1,13} = data.field_size_Y;
+                    data_planmetrics{1,14} = mech_stability.plan_mean_deg_MU;
+                    data_planmetrics{1,15} = mech_stability.plan_bankA_mm_MU;
+                    data_planmetrics{1,16} = mech_stability.plan_bankB_mm_MU;
+
+                    conn = database(dbpath,username,pwd,obj,URL);
+                          eval(['RTplanID = fetch(conn,''SELECT RTplanID FROM RTplans WHERE plan_UID=','"',plan_UID_plan,'"',''');']);
+                          FK_RTplans_measurements = int64(cell2mat(RTplanID));
+                          FK_RTplans_planmetrics = FK_RTplans_measurements;
+                          data_planmetrics{1,10} = FK_RTplans_planmetrics;
+                          insert(conn,tablename_planmetrics,colnames_planmetrics,data_planmetrics);
+                    close(conn)     
+                end 
+        else
+           msgbox('Plan information is already in database');
+        end
+        
         close(conn)      
         
       end

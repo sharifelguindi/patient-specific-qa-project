@@ -1,6 +1,7 @@
-% Begin initialization code - DO NOT EDIT
+%--------------------------------------------------------------------------
+% Initialize GUI (generated from Matlab GUIDE)
+%--------------------------------------------------------------------------
 function varargout = vmatqatool(varargin)
-
 
     gui_Singleton = 1;
     gui_State = struct('gui_Name',       mfilename, ...
@@ -18,10 +19,7 @@ function varargout = vmatqatool(varargin)
     else
         gui_mainfcn(gui_State, varargin{:});
     end
-% End initialization code - DO NOT EDIT
 
-
-%% --- Executes just before vmatqatool is made visible.
 function vmatqatool_OpeningFcn(hObject, eventdata, handles, varargin) %#ok<*INUSL>
 
     % Choose default command line output for vmatqatool
@@ -30,16 +28,18 @@ function vmatqatool_OpeningFcn(hObject, eventdata, handles, varargin) %#ok<*INUS
     % Update handles structure
     guidata(hObject, handles);
 
-%% --- Outputs from this function are returned to the command line.
 function varargout = vmatqatool_OutputFcn(hObject, eventdata, handles) 
 
     % Get default command line output from handles structure
     varargout{1} = handles.output;
-  
 
-%% --- Executes on button press in select_patient.
+    
+%--------------------------------------------------------------------------
+% Function calls for selected paths in GUI
+%--------------------------------------------------------------------------
 function select_patient_Callback(hObject, eventdata, handles) %#ok<*DEFNU>
-
+ 
+ set(handles.upload_to_database,'Enable','on')  
  [path]       = uigetdir('J:\PhysicsDosimetry\Eclipse TPS\Patient Specific QA');
  handles.path = strcat(path,'\');
  set(handles.patient_root_path,'string',handles.path);
@@ -66,30 +66,40 @@ function select_patient_Callback(hObject, eventdata, handles) %#ok<*DEFNU>
      close(h)
      h = msgbox('No Excel Sheet Found, Please manually enter scaling factor and machine name');
      no_excel_flag = 1;
+     set(handles.upload_to_database,'Enable','on')  
  elseif isempty(MC_filename) == 1 || isempty(TPS_filename) == 1 || isempty(RP_filename) == 1 || isempty(xcl_filename) == 1
      close(h)
      h = msgbox('all files not found, some features may not work');
+     set(handles.upload_to_database,'Enable','off')  
  end
   
  MC_file      = strcat(root_path, MC_filename.name);
      if isempty(MC_filename) == 1
          set(handles.mc_okay_check,'string','NOT FOUND');
+         set(handles.compute_gamma_analysis,'Enable','off')
      else
          set(handles.mc_okay_check,'string',MC_filename.name);
+          set(handles.compute_gamma_analysis,'Enable','on')
      end
  
  TPS_file     = strcat(root_path, TPS_filename.name);
      if isempty(TPS_filename) == 1
          set(handles.RD_okay_check,'string','NOT FOUND');
+         set(handles.compute_gamma_analysis,'Enable','off')
      else
          set(handles.RD_okay_check,'string',TPS_filename.name);
+         set(handles.compute_gamma_analysis,'Enable','on')
      end
  
  RP_file      = strcat(root_path, RP_filename.name);
      if isempty(RP_filename) == 1
          set(handles.RP_okay_check,'string','NOT FOUND');
+         set(handles.upload_plan_metrics_only,'Enable','off')
+         set(handles.compute_plan_metrics,'Enable','off')
      else
          set(handles.RP_okay_check,'string',RP_filename.name);
+         set(handles.upload_plan_metrics_only,'Enable','on')
+         set(handles.compute_plan_metrics,'Enable','on')
      end
  
  xcl_file         = strcat(root_path, xcl_filename.name);
@@ -100,6 +110,7 @@ function select_patient_Callback(hObject, eventdata, handles) %#ok<*DEFNU>
      else
          set(handles.excel_okay_check,'string',xcl_filename.name);
      end
+     
  if no_excel_flag == 0
      [~,~,raw]    = xlsread(xcl_file, 'MapPhan dose scaled', 'B3:D33');
 
@@ -128,15 +139,7 @@ function select_patient_Callback(hObject, eventdata, handles) %#ok<*DEFNU>
      guidata(hObject, handles);
      close(h)
  end
-
-function patient_root_path_CreateFcn(hObject, eventdata, handles) %#ok<*INUSD>
-
-    if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
-        set(hObject,'BackgroundColor','white');
-    end
-    
-
-%% --- Executes on button press in select_destination.
+ 
 function select_destination_Callback(hObject, eventdata, handles)
 
     [path] = uigetdir;
@@ -144,40 +147,6 @@ function select_destination_Callback(hObject, eventdata, handles)
     set(handles.destination_root_path,'string',handles.path);
     guidata(hObject, handles);
 
-function destination_root_path_Callback(hObject, eventdata, handles)
-
-function destination_root_path_CreateFcn(hObject, eventdata, handles)
-
-    if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
-        set(hObject,'BackgroundColor','white');
-    end
-   
-
-%% --- Executes on button press in upload_to_database.
-function upload_to_database_Callback(hObject, eventdata, handles)
-
-       root_path = get(handles.patient_root_path,'string'); 
-     destination = get(handles.destination_root_path,'string'); 
-          dbpath = get(handles.database_path,'string');
-    TPS_filename = dir(strcat(root_path,'\','RD*.dcm'));
-     RP_filename = dir(strcat(root_path,'\','RP*.dcm'));
-     MC_filename = dir(strcat(root_path,'\','*.txt'));
-        xcl_file = handles.xcl_file;
-        
-     if length(MC_filename) > 1;
-        MC_filename = dir(strcat(root_path,'\','mc*.txt'));
-     end
- 
-         MC_file = strcat(root_path, MC_filename.name);
-        TPS_file = strcat(root_path, TPS_filename.name);
-         RP_file = strcat(root_path, RP_filename.name);
-    machine_name = get(handles.machine_name,'string');
-    dose_scaling = str2double(get(handles.scaling_factor,'string'));
-
-        data_input_gui(root_path, destination, MC_file, TPS_file, RP_file, xcl_file, machine_name, dose_scaling, dbpath);
-             
-
-%% --- Executes on button press in select_database_path.
 function select_database_path_Callback(hObject, eventdata, handles)
 
     [filename, pathname] = uigetfile({'*.*'},'File Selector');
@@ -187,16 +156,45 @@ function select_database_path_Callback(hObject, eventdata, handles)
 
     guidata(hObject, handles);
 
-function database_path_Callback(hObject, eventdata, handles)
+function select_batch_file_path_Callback(hObject, eventdata, handles)
 
+    [path] = uigetdir('J:\PhysicsDosimetry\Eclipse TPS\Patient Specific QA');
+    handles.path = strcat(path,'\');
+    set(handles.patient_root_path,'string',handles.path);
+    guidata(hObject, handles);
+
+    
+%--------------------------------------------------------------------------
+% Call display boxes for associated paths
+%--------------------------------------------------------------------------
+function destination_root_path_CreateFcn(hObject, eventdata, handles) 
+
+    if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+        set(hObject,'BackgroundColor','white');
+    end
+ 
+function patient_root_path_CreateFcn(hObject, eventdata, handles) %#ok<*INUSD>
+
+    if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+        set(hObject,'BackgroundColor','white');
+    end 
+    
 function database_path_CreateFcn(hObject, eventdata, handles)
 
     if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
         set(hObject,'BackgroundColor','white');
     end
-   
+    
+function batch_upload_path_CreateFcn(hObject, eventdata, handles)
 
-%% --- Executes on button press in compute_gamma_analysis.
+    if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+        set(hObject,'BackgroundColor','white');
+    end    
+    
+
+%--------------------------------------------------------------------------
+% Function Calls for associated buttons in Matlab GUI
+%--------------------------------------------------------------------------    
 function compute_gamma_analysis_Callback(hObject, eventdata, handles)
 
    root_path = get(handles.patient_root_path,'string'); 
@@ -207,16 +205,15 @@ TPS_filename = dir(strcat(root_path,'\','RD*.dcm'));
     MC_filename = dir(strcat(root_path,'\','mc*.txt'));
  end
 
-    MC_file = strcat(root_path, MC_filename.name);
+    MC_file  = strcat(root_path, MC_filename.name);
     TPS_file = strcat(root_path, TPS_filename.name);
 
-   machine_name = get(handles.machine_name,'string');
-   dose_scaling = str2double(get(handles.scaling_factor,'string'));
+     machine_name = get(handles.machine_name,'string');
+     dose_scaling = str2double(get(handles.scaling_factor,'string'));
               DTA = str2double(get(handles.DTA,'string'));
     dose_criteria = str2double(get(handles.pct_diff,'string'))/100;
         threshold = str2double(get(handles.pct_threshold,'string'))/100;
-    
-    
+      
             if (get(handles.van_dyk,'Value') == get(handles.van_dyk,'Max'))
                 van_dyk = 1; %ON
                 van_dyk_disp = 'ON';
@@ -224,8 +221,7 @@ TPS_filename = dir(strcat(root_path,'\','RD*.dcm'));
                 van_dyk = 2; %OFF
                 van_dyk_disp = 'OFF';
             end
-
-    
+   
 [ MC, ~, ~, ~ ] = readMapCheck( MC_file );
     [ TPS_dose] = open_doseplane( TPS_file );
        TPS_dose = TPS_dose*dose_scaling;
@@ -277,44 +273,17 @@ TPS_filename = dir(strcat(root_path,'\','RD*.dcm'));
     data_qaresults{10,1} = 'Machine Name';
 
     set(handles.display_table,'data',data_qaresults,'ColumnName',{'Parameter','Value'})
-
-function DTA_Callback(hObject, eventdata, handles)
-
-function DTA_CreateFcn(hObject, eventdata, handles)
-
-    if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
-        set(hObject,'BackgroundColor','white');
-    end
-
-function pct_diff_Callback(hObject, eventdata, handles)
-
-function pct_diff_CreateFcn(hObject, eventdata, handles)
-
-    if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
-        set(hObject,'BackgroundColor','white');
-    end
-
-function pct_threshold_Callback(hObject, eventdata, handles)
-
-function pct_threshold_CreateFcn(hObject, eventdata, handles)
-
-    if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
-        set(hObject,'BackgroundColor','white');
-    end
-
-function van_dyk_Callback(hObject, eventdata, handles)
-    
-    
-%% --- Executes on button press in compute_plan_metrics.
+     
 function compute_plan_metrics_Callback(hObject, eventdata, handles)
 
-          h = waitbar(0,'please wait...');
+          h = msgbox('Opening Files...');
+ set(findobj(h,'style','pushbutton'),'Visible','off')
   root_path = get(handles.patient_root_path,'string'); 
 RP_filename = dir(strcat(root_path,'\','RP*.dcm'));
     RP_file = strcat(root_path, RP_filename.name);
-
        info = dicominfo(RP_file);
    numbeams = info.FractionGroupSequence.Item_1.NumberOfBeams;
+   
 
 [ data, ~, ~, ~, mech_stability ] = calc_fluence_map(RP_file);  
 
@@ -332,10 +301,10 @@ data_planmetrics{1,11} = mech_stability.plan_mean_deg_MU;
 data_planmetrics{1,12} = mech_stability.plan_bankA_mm_MU;
 data_planmetrics{1,13} = mech_stability.plan_bankB_mm_MU;
 
-data_planmetrics{1,14} = data.PI + 1*(((mech_stability.plan_bankA_mm_MU + mech_stability.plan_bankB_mm_MU)/2)*(mech_stability.plan_mean_deg_MU));
+data_planmetrics{1,14} = data.PI + 3*(((mech_stability.plan_bankA_mm_MU + mech_stability.plan_bankB_mm_MU)/2)*(mech_stability.plan_mean_deg_MU));
 
 
-
+set(findobj(h,'Tag','MessageBox'),'String','Fetching Current Database Values...')
                   dbpath = get(handles.database_path,'string');
                 username = '';
                      pwd = '';
@@ -377,7 +346,6 @@ unfreezeColors;
 cla
 
 PI_leafspeed(:,1) = data(:,27).*data(:,26);
-length(data(:,1))
 C0 = 1;
 C1 = 3;
 classifier_values(:,1) = C0.*(((data(:,21)))) + C1.*(PI_leafspeed(:,1));
@@ -416,8 +384,6 @@ data{15,1} = 'Estimated GPR';
 set(handles.display_table,'data',data,'ColumnName',{'Parameter','Value'})
 close(h)
 
-
-%% --- Executes on button press in upload_plan_metrics_only.
 function upload_plan_metrics_only_Callback(hObject, eventdata, handles)
     
        root_path = get(handles.patient_root_path,'string'); 
@@ -428,9 +394,29 @@ function upload_plan_metrics_only_Callback(hObject, eventdata, handles)
          RP_file = strcat(root_path, RP_filename.name);
          
      data_input_plan_only(root_path, destination, RP_file, dbpath)
-     
 
-%% --- Executes on button press in batch_upload_start.
+function upload_to_database_Callback(hObject, eventdata, handles)
+
+       root_path = get(handles.patient_root_path,'string'); 
+     destination = get(handles.destination_root_path,'string'); 
+          dbpath = get(handles.database_path,'string');
+    TPS_filename = dir(strcat(root_path,'\','RD*.dcm'));
+     RP_filename = dir(strcat(root_path,'\','RP*.dcm'));
+     MC_filename = dir(strcat(root_path,'\','*.txt'));
+        xcl_file = handles.xcl_file;
+        
+     if length(MC_filename) > 1;
+        MC_filename = dir(strcat(root_path,'\','mc*.txt'));
+     end
+ 
+         MC_file = strcat(root_path, MC_filename.name);
+        TPS_file = strcat(root_path, TPS_filename.name);
+         RP_file = strcat(root_path, RP_filename.name);
+    machine_name = get(handles.machine_name,'string');
+    dose_scaling = str2double(get(handles.scaling_factor,'string'));
+
+        data_input_gui(root_path, destination, MC_file, TPS_file, RP_file, xcl_file, machine_name, dose_scaling, dbpath);                 
+    
 function batch_upload_start_Callback(hObject, eventdata, handles)
 
 
@@ -439,30 +425,38 @@ function batch_upload_start_Callback(hObject, eventdata, handles)
       dbpath = get(handles.database_path,'string');
       
       data_input_gui_batch(root_path, destination, dbpath);
+           
+function database_cleanup_Callback(hObject, eventdata, handles)
+
+    DatabaseCleanup
+  
       
-      
-%% --- Executes on button press in select_batch_file_path.
-function select_batch_file_path_Callback(hObject, eventdata, handles)
+%--------------------------------------------------------------------------
+% GUI Items that display relevant text input/output
+%--------------------------------------------------------------------------     
+function DTA_CreateFcn(hObject, eventdata, handles)
 
-    [path] = uigetdir('J:\PhysicsDosimetry\Eclipse TPS\Patient Specific QA');
-    handles.path = strcat(path,'\');
-    set(handles.patient_root_path,'string',handles.path);
-    guidata(hObject, handles);
+    if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+        set(hObject,'BackgroundColor','white');
+    end
+    
+function DTA_Callback(hObject, eventdata, handles)
 
-function batch_upload_path_Callback(hObject, eventdata, handles)
-
-function batch_upload_path_CreateFcn(hObject, eventdata, handles)
+function pct_diff_CreateFcn(hObject, eventdata, handles)
 
     if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
         set(hObject,'BackgroundColor','white');
     end
 
-%% --- Executes on button press in database_cleanup.
-function database_cleanup_Callback(hObject, eventdata, handles)
+function pct_diff_Callback(hObject, eventdata, handles)
 
-    DatabaseCleanup
-    
-function scaling_factor_Callback(hObject, eventdata, handles)
+function pct_threshold_CreateFcn(hObject, eventdata, handles)
+
+    if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+        set(hObject,'BackgroundColor','white');
+    end
+
+function pct_threshold_Callback(hObject, eventdata, handles)
 
 function scaling_factor_CreateFcn(hObject, eventdata, handles)
 
@@ -470,10 +464,14 @@ if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgr
     set(hObject,'BackgroundColor','white');
 end
 
-function machine_name_Callback(hObject, eventdata, handles)
+function scaling_factor_Callback(hObject, eventdata, handles)
 
 function machine_name_CreateFcn(hObject, eventdata, handles)
 
 if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
     set(hObject,'BackgroundColor','white');
-end
+end    
+    
+function machine_name_Callback(hObject, eventdata, handles)    
+    
+
