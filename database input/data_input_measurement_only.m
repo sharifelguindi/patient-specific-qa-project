@@ -1,40 +1,21 @@
-function [ ] = data_input_measurement_only(root_path, destination)
-
-%       Automated Gamma Analysis of Patient Specific IMRT QA at
-%                 The Mayo Clinic in Arizona
-%               AUTHOR : SHARIF ELGUINDI, M.S.
-
-% This function will need the following functions in the same matlab path 
-% in order to automate the gamma analysis of patient specific QA:
-%               1. open_doseplan.m
-%               2. mapcheck_opener.m
-%               4. gamma_analysis.m
-% -----------------------------------------------------------------------
-% Combined with the 3 functions above, this tool will automate the gamma 
-% analysis process and collect any amount of data that can similiarly be
-% obtained by the MapCheck software.
-% -----------------------------------------------------------------------
-
+function [ ] = data_input_measurement_only(root_path, destination, MC_file, TPS_file, plan_name, name, machine_name, dose_scaling, dbpath)
 %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%                    Declare Global Variables for data input                     %%%%%%%%%%%%%%%%                
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-                   steps = 1;
+        h = waitbar(0,'Please wait...');       
              data_RTplan = cell(1,6);
         data_measurement = cell(1,8);
           data_qaresults = cell(1,11);
              format_time = 'yyyy-mm-dd HH:MM:SS';
-          
-                 folders = dir(root_path);
                  
                   warning('off','all')
                   
-                    dbpath = 'J:\PhysicsDosimetry\Eclipse TPS\Lists or Rosters\Database\imrtqa';
                   username = '';
                        pwd = '';
                        obj = 'org.sqlite.JDBC';
-                       URL = 'jdbc:sqlite:J:\PhysicsDosimetry\Eclipse TPS\Lists or Rosters\Database\imrtqa';
-                 
+                       URL = ['jdbc:sqlite:',dbpath];
+
          tablename_RTplans = 'RTplans';
           colnames_RTplans = {'plan_UID','patient_ID','study_date','treatment_site','study_description','plan_name'};
     
@@ -51,97 +32,27 @@ function [ ] = data_input_measurement_only(root_path, destination)
                              'target_dose_diff','target_dose_stdev','target_dose_numpoints','pneumbra_dose_diff','pneumbra_dose_stdev', ...
                              'pneumbra_dose_numpoints','low_dose_diff','low_dose_stdev','low_dose_numpoints','FK_measurements_dosemetrics'};
                          
-            plan_dose_path = 'J:\PhysicsDosimetry\Eclipse TPS\Lists or Rosters\Database\plan_dose\';
-            meas_dose_path = 'J:\PhysicsDosimetry\Eclipse TPS\Lists or Rosters\Database\meas_dose\';
-            gamma_map_path = 'J:\PhysicsDosimetry\Eclipse TPS\Lists or Rosters\Database\gamma_map\';
-        failed_destination = 'H:\imrtraw\plan_failed\';
-         
-%%
-h = waitbar(0,'Please wait...');
-pt_num_start = 3;
-pt_num_end = length(folders);
-total_steps = (pt_num_end - pt_num_start + 1)*120;
+            C = strsplit(dbpath,'\');
+            D = C(1,1:end-1);
+            pathname = strjoin(D,'\');
+            plan_dose_path = [pathname,'\plan_dose\'];
+            meas_dose_path = [pathname,'\meas_dose\'];
+            gamma_map_path = [pathname,'\gamma_map\'];
 
-for i = pt_num_start:pt_num_end
-    
-    tic;
-% -----------------------------------------------------------------------
-% z is a place holder that steps through the cell array ' ptdata '. 
-% -----------------------------------------------------------------------
-
-    z = 1;
-
-% -----------------------------------------------------------------------
-% Input the path to the file where patient data is stored.  The folder
-% should  contain 1 RD*.dcm eclipse dose file and 1 .txt mapcheck file and
-% the excel sheet containing the dose scaling value.  The 2 files 
-% should be registered such that there centers are the same.  
-% -----------------------------------------------------------------------
-
-     source = strcat(root_path,folders(i).name);
-   TPS_file = dir(strcat(root_path,folders(i).name,'\','*.dcm'));
-    MC_file = dir(strcat(root_path,folders(i).name,'\','*.txt'));
-   cal_file = dir(strcat(root_path,folders(i).name,'\','*.xls'));
+ [ MC, mapCheckArray, ~, ~ ] = readMapCheck( MC_file );
+   MC                        = MC(2:end,2:end);
         
-% -----------------------------------------------------------------------
-% Use 2 of the 3 functions listed above to extract the MapCheck dose matrix
-% and the TPS dose matrix and put them in a functional form.
-% -----------------------------------------------------------------------
-
-   [ MC ] = mapcheck_opener_V2( strcat(root_path, folders(i).name,'\', MC_file.name ));
-        MC = MC(2:end,2:end);
-        
-   [ TPS ] = open_doseplane( strcat(root_path, folders(i).name,'\', TPS_file.name ));
-    
-    %% Pull Excel File Information
-        [~,~,raw] = xlsread(strcat(root_path, folders(i).name,'\', cal_file.name ), 'MapPhan dose scaled', 'B3:D33');
-        dose_scaling = double(cell2mat(raw(13,2)));
-        TPS = TPS*dose_scaling;
-        
-        plan_name = cell2mat(raw(3,1));
-        if isempty(plan_name) == 1 || isnumeric(plan_name) == 1
-            plan_name = 'unknown';
-        end
-        
-        name = plan_name;
-        name = strrep(name,'/','-');
-        name = strrep(name,'\','-');
-        name = strrep(name,'#','-');
-        name = strrep(name,'.','-');
-        name = strrep(name,':','-');
-        
-        ind_C = find(strcmp(raw,'CTX')==1);
-        ind_D = find(strcmp(raw,'DTX')==1);
-        ind_A = find(strcmp(raw,'AEX')==1);
-
-        if isempty(ind_A) == 0
-            machine_name = raw(ind_A);
-%             MC = MC*(0.9856);
-%             machine_name = 'AEX_scaled';
-        elseif isempty(ind_C) == 0
-            machine_name = raw(ind_C);
-%             MC = MC*(1.0009);
-%             machine_name = 'CTX_scaled';
-        elseif isempty(ind_D) == 0
-            machine_name = raw(ind_D);
-%             MC = MC*(1.0196);
-%             machine_name = 'DTX_scaled';
-        else
-            machine_name = 'unknown';
-        end         
-        machine_name = char(machine_name);
-        
+   [ TPS ] = open_doseplane( TPS_file );
+     TPS   = TPS*dose_scaling;
+                   
     %% Pull DICOM information
     
-             info = dicominfo(strcat(root_path, folders(i).name,'\', TPS_file.name ));
+             info = dicominfo(TPS_file);
     plan_UID_plan = info.ReferencedRTPlanSequence.Item_1.ReferencedSOPInstanceUID;
-    
-        t = now;
-        instance_UID = datestr(t,format_time);
-        date_time_stamp = strrep(instance_UID,' ','');
-        date_time_stamp = strrep(date_time_stamp,':','');
-%      instance_UID = info.SOPInstanceUID;
-
+                t = now;
+     instance_UID = datestr(t,format_time);
+  date_time_stamp = strrep(instance_UID,' ','');
+  date_time_stamp = strrep(date_time_stamp,':','');
        patient_ID = info.PatientID;
        patient_ID = strrep(patient_ID,'-','');
          datetime = [info.StudyDate,' ',info.StudyTime];
@@ -163,28 +74,18 @@ for i = pt_num_start:pt_num_end
         plan_dose_filename = strcat(patient_ID,'-',date_stamp,'-',time_stamp(1:6),'-',name,'-','plan','-',date_time_stamp,'.mat');
   
    %% Pull Background information (only if not composite text file)
-          okay = 0;
-          try
-            [mapCheckArray,~] = readMapCheck(strcat(root_path, folders(i).name,'\', MC_file.name ));
-            okay = 1;
-          catch
-            disp('Composite Dose File')  
-          end
-
-          if okay == 1
-
-              background = mapCheckArray(:,3:end,1);
-              ind = find(background>0);
-              background_mean = mean(background(ind));
-              background_stdev = std(background(ind));
-
-          else
-
-              background_mean = 0;
-              background_stdev = 0;
-
-          end
-      
+        background = mapCheckArray(:,3:end,1);
+               ind = find(background>0);
+   
+   if isempty(ind) == 1
+       background_mean  = 0;
+       background_stdev = 0;
+   else
+       background_mean = mean(background(ind));
+       background_stdev = std(background(ind));
+   end
+        
+    waitbar(0.25,h,sprintf('Calculating Dose Metrics...'))
    %% Collect plane of measurement data such as target dose, gradients and differences between planned and measured 
  [ mean_target_gradient, mean_target_dose, mean_pneumbra_gradient, ...
    mean_lowdose_gradient, mean_lowdose_dose, target, pneumbra, low_dose ] = dose_plane_metrics( TPS, MC );
@@ -204,31 +105,7 @@ for i = pt_num_start:pt_num_end
                    data_dosemetrics{1,12} = low_dose.dose_diff;
                    data_dosemetrics{1,13} = low_dose.stdev;
                    data_dosemetrics{1,14} = low_dose.numpoints;
- 
    
-   %% Collect RP plan information, folder needs to contain IMRT QA plan RP*.dcm
-%    RP_file = dir(strcat(root_path,folders(i).name,'\','RP*.dcm'));
-%    filename = strcat(root_path, folders(i).name,'\', RP_file.name );
-%    [ PLW, PM, PA, PAGW, PI, ~, ~, ~, ~, ~, ~, ~, ~, totalMU, beamInfo, leaf_sequence, fluencemap, jaw, modulation_type, field_size_X, field_size_Y, mech_stability ] = calc_fluence_map_V3(filename);  %#ok<ASGLU>
-% 
-%    info = dicominfo(filename);
-%    plan_UID = info.SOPInstanceUID;  %#ok<NASGU>
-%    time_stamp = info.InstanceCreationTime;
-%    date_stamp = info.InstanceCreationDate;
-%    patient_ID = info.PatientID;
-%    patient_ID = strrep(patient_ID,'-','');
-%    fluencemap_filename = strcat(patient_ID,'-',date_stamp,'-',time_stamp(1:6),'-','planmetrics','.mat');
-%  
-%    numbeams = info.FractionGroupSequence.Item_1.NumberOfBeams;
-%    
-%    if PM > 1 || PM < 0
-%        movefile(source,failed_destination)
-%        PM = 2; %#ok<NASGU>
-%        display('Modulation Calculation Failed.')
-%        return
-%    end  
-%        
-
 %% Database Insert
 
     %% Insert RTplans table information
@@ -243,52 +120,22 @@ for i = pt_num_start:pt_num_end
     eval(['RTplanID = fetch(conn,''SELECT RTplanID FROM RTplans WHERE plan_UID=','"',plan_UID_plan,'"',''');']);
       if isempty(RTplanID) == 1
         insert(conn,tablename_RTplans,colnames_RTplans,data_RTplan);
-        
-        eval(['RTplanID = fetch(conn,''SELECT RTplanID FROM RTplans WHERE plan_UID=','"',plan_UID_plan,'"',''');']);
-        FK_RTplans_measurements = int64(cell2mat(RTplanID));
         close(conn)
-%             %% Insert planmetrics information
-%                 if PM ~= 2
-% 
-%                     data_planmetrics{1,1}  = numbeams;
-%                     data_planmetrics{1,2}  = PLW;
-%                     data_planmetrics{1,3}  = PA;
-%                     data_planmetrics{1,4}  = PM;
-%                     data_planmetrics{1,5}  = PI;
-%                     data_planmetrics{1,6}  = PAGW;
-%                     data_planmetrics{1,7}  = totalMU;
-%                     data_planmetrics{1,8}  = fluencemap_path;
-%                     data_planmetrics{1,9}  = fluencemap_filename;
-%                     data_planmetrics{1,11} = modulation_type;
-%                     data_planmetrics{1,12} = field_size_X;
-%                     data_planmetrics{1,13} = field_size_Y;
-%                     data_planmetrics{1,14} = mech_stability.plan_mean_deg_MU;
-%                     data_planmetrics{1,15} = mech_stability.plan_bankA_mm_MU;
-%                     data_planmetrics{1,16} = mech_stability.plan_bankB_mm_MU;
-% 
-%                     conn = database(dbpath,username,pwd,obj,URL);
-%                           eval(['RTplanID = fetch(conn,''SELECT RTplanID FROM RTplans WHERE plan_UID=','"',plan_UID_plan,'"',''');']);
-%                           FK_RTplans_measurements = int64(cell2mat(RTplanID));
-%                           FK_RTplans_planmetrics = FK_RTplans_measurements;
-%                           data_planmetrics{1,10} = FK_RTplans_planmetrics;
-%                           insert(conn,tablename_planmetrics,colnames_planmetrics,data_planmetrics);
-%                     close(conn)
-%                     
-%                 end
-%     
-      else 
+        
+        conn = database(dbpath,username,pwd,obj,URL);
+              eval(['RTplanID = fetch(conn,''SELECT RTplanID FROM RTplans WHERE plan_UID=','"',plan_UID_plan,'"',''');']);
+              FK_RTplans_measurements = int64(cell2mat(RTplanID));
+        close(conn)
+
+      else
           
-        display('Plan information is already in database');
-        eval(['RTplanID = fetch(conn,''SELECT RTplanID FROM RTplans WHERE plan_UID=','"',plan_UID_plan,'"',''');']);
+        msgbox('Plan information is already in database');
         FK_RTplans_measurements = int64(cell2mat(RTplanID));
         close(conn)      
         
       end
     
     %% Insert measurements table information
-    
-
-    
     data_measurement{1,1} = instance_UID;
     data_measurement{1,2} = plan_dose_path;
     data_measurement{1,3} = plan_dose_filename;
@@ -297,7 +144,7 @@ for i = pt_num_start:pt_num_end
     data_measurement{1,6} = machine_name;
     data_measurement{1,7} = dose_scaling;
     data_measurement{1,9} = background_mean;
-    data_measurement{1,10} = background_stdev;
+    data_measurement{1,10}= background_stdev;
     
     conn = database(dbpath,username,pwd,obj,URL);
     
@@ -318,7 +165,7 @@ for i = pt_num_start:pt_num_end
    
 
 %% Save fluence map, measurement plane, dose plane    
-% save(strcat(fluencemap_path,fluencemap_filename),'fluencemap','beamInfo','leaf_sequence','mech_stability');    
+
 save(strcat(meas_dose_path,meas_dose_filename),'MC');
 save(strcat(plan_dose_path,plan_dose_filename),'TPS');
         
@@ -332,7 +179,8 @@ save(strcat(plan_dose_path,plan_dose_filename),'TPS');
 % middle number is the step size, and the outer numbers are the starting
 % and finish point.
 % -----------------------------------------------------------------------
-
+z = 1;
+ waitbar(0.5,h,sprintf('Computing Gamma Analysis Data'))
  FK_measurements_qa_results = FK_measurements_dosemetrics;
         for van_dyk_value = 1:2;
             for DTA = 1:3;
@@ -379,19 +227,17 @@ save(strcat(plan_dose_path,plan_dose_filename),'TPS');
                         close(conn) 
                         
                         save(strcat(gamma_map_path,gamma_map_filename),'gamma_map');
-                        waitbar(steps / total_steps,h,sprintf('Patient %d out of %d. (%.2f Percent Complete)',i-2,pt_num_end-2,((steps / total_steps)*100)))
                         z = z + 1;
-                        steps = steps + 1;
+                        waitbar(0.5 + (z/240),h,sprintf('Computing Gamma Analysis Data'))
                         
                     end
                 end
             end   
-        end
-    toc      
-    movefile(source,destination)
-end
-
-  close(h)
+        end     
+    movefile(root_path,destination)
+    waitbar(1,h,sprintf('Data Input Complete'))
+    pause(1)
+    close(h)
   
 end
 

@@ -1,4 +1,4 @@
-function [ ] = data_input_gui(root_path, destination, MC_file, TPS_file, RP_file, xcl_file, machine_name, dose_scaling, dbpath)
+function [ ] = data_input_gui(root_path, destination, MC_file, TPS_file, RP_file, plan_name, name, machine_name, dose_scaling, dbpath)
 
 %       Automated Gamma Analysis of Patient Specific IMRT QA at
 %                 The Mayo Clinic in Arizona
@@ -19,8 +19,6 @@ function [ ] = data_input_gui(root_path, destination, MC_file, TPS_file, RP_file
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%                    Declare Global Variables for data input                     %%%%%%%%%%%%%%%%                
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        
-        
 
         h = waitbar(0,'Please wait...');       
              data_RTplan = cell(1,6);
@@ -44,7 +42,7 @@ function [ ] = data_input_gui(root_path, destination, MC_file, TPS_file, RP_file
           
       tablename_qaresults = 'qa_results';
        colnames_qaresults = {'dta','dose_criteria','threshold','van_dyk','numpts_analyzed', ...
-                              'gpr','avg_dose_ratio','stdev_dose_ratio','gamma_map_path','gamma_map_filename','FK_measurements_qa_results'};
+                             'gpr','avg_dose_ratio','stdev_dose_ratio','gamma_map_path','gamma_map_filename','FK_measurements_qa_results'};
                           
     tablename_dosemetrics = 'dosemetrics';
      colnames_dosemetrics = {'mean_target_dose','mean_target_gradient','mean_pneumbra_gradient','mean_lowdose_gradient','mean_lowdose_dose',...
@@ -67,37 +65,21 @@ function [ ] = data_input_gui(root_path, destination, MC_file, TPS_file, RP_file
 
 
  [ MC, mapCheckArray, ~, ~ ] = readMapCheck( MC_file );
-   MC            = MC(2:end,2:end);
+   MC                        = MC(2:end,2:end);
         
    [ TPS ] = open_doseplane( TPS_file );
      TPS   = TPS*dose_scaling;
      
-    %% Pull Excel File Information
-        [~,~,raw] = xlsread(xcl_file, 'MapPhan dose scaled', 'B3:D33');
-        plan_name = cell2mat(raw(3,1));
-        
-        if isempty(plan_name) == 1 || isnumeric(plan_name) == 1
-            plan_name = 'unknown';
-        end
-        
-        name = plan_name;
-        name = strrep(name,'/','-');
-        name = strrep(name,'\','-');
-        name = strrep(name,'#','-');
-        name = strrep(name,'.','-');
-        name = strrep(name,':','-');
-              
     %% Pull DICOM information
     
              info = dicominfo(TPS_file);
     plan_UID_plan = info.ReferencedRTPlanSequence.Item_1.ReferencedSOPInstanceUID;
-    
-        t = now;
-        instance_UID = datestr(t,format_time);
-        date_time_stamp = strrep(instance_UID,' ','');
-        date_time_stamp = strrep(date_time_stamp,':','');
-        patient_ID = info.PatientID;
-        patient_ID = strrep(patient_ID,'-','');
+                t = now;
+     instance_UID = datestr(t,format_time);
+  date_time_stamp = strrep(instance_UID,' ','');
+  date_time_stamp = strrep(date_time_stamp,':','');
+       patient_ID = info.PatientID;
+       patient_ID = strrep(patient_ID,'-','');
          datetime = [info.StudyDate,' ',info.StudyTime];
        study_date = [datetime(1:4),'-',datetime(5:6),'-',datetime(7:11),':',datetime(12:13),':',datetime(14:15)];
        
@@ -117,28 +99,18 @@ function [ ] = data_input_gui(root_path, destination, MC_file, TPS_file, RP_file
         plan_dose_filename = strcat(patient_ID,'-',date_stamp,'-',time_stamp(1:6),'-',name,'-','plan','-',date_time_stamp,'.mat');
   
    %% Pull Background information (only if not composite text file)
-          okay = 0;
-          try
-            [mapCheckArray,~] = readMapCheck(MC_file);
-            okay = 1;
-          catch
-            disp('Composite Dose File')  
-          end
-
-          if okay == 1
-
-              background = mapCheckArray(:,3:end,1);
-              ind = find(background>0);
-              background_mean = mean(background(ind));
-              background_stdev = std(background(ind));
-
-          else
-
-              background_mean = 0;
-              background_stdev = 0;
-
-          end
-
+        background = mapCheckArray(:,3:end,1);
+               ind = find(background>0);
+   
+   if isempty(ind) == 1
+       background_mean  = 0;
+       background_stdev = 0;
+   else
+       background_mean = mean(background(ind));
+       background_stdev = std(background(ind));
+   end
+   
+   
     waitbar(0.25,h,sprintf('Calculating Plan Metric Data'))
    %% Collect plane of measurement data such as target dose, gradients and differences between planned and measured 
  [ mean_target_gradient, mean_target_dose, mean_pneumbra_gradient, ...
@@ -178,7 +150,7 @@ function [ ] = data_input_gui(root_path, destination, MC_file, TPS_file, RP_file
    
    if data.PM > 1 || data.PM < 0
          PM = 2; %#ok<NASGU>
-       display('Modulation Calculation Failed.')
+       msgbox('Modulation Calculation Failed.')
        return
    end  
        
@@ -227,7 +199,7 @@ function [ ] = data_input_gui(root_path, destination, MC_file, TPS_file, RP_file
                     
                 end
     
-      else 
+      else
           
         eval(['planmetricID = fetch(conn,''SELECT planmetricID FROM planmetrics WHERE FK_RTplans_planmetrics=','"', num2str(cell2mat(RTplanID)) ,'"',''');']); 
         if isempty(planmetricID) == 1
@@ -258,13 +230,18 @@ function [ ] = data_input_gui(root_path, destination, MC_file, TPS_file, RP_file
                     close(conn)     
                 end 
         else
-           msgbox('Plan information is already in database');
+           h_2 = msgbox('Plan information is already in database');
+           conn = database(dbpath,username,pwd,obj,URL);
+              eval(['RTplanID = fetch(conn,''SELECT RTplanID FROM RTplans WHERE plan_UID=','"',plan_UID_plan,'"',''');']);
+              FK_RTplans_measurements = int64(cell2mat(RTplanID));
+           close(conn) 
+           close(h_2)
         end
         
         close(conn)      
         
       end
-    
+close(conn)
     %% Insert measurements table information
     data_measurement{1,1} = instance_UID;
     data_measurement{1,2} = plan_dose_path;

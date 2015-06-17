@@ -27,7 +27,13 @@ function vmatqatool_OpeningFcn(hObject, eventdata, handles, varargin) %#ok<*INUS
 
     % Update handles structure
     guidata(hObject, handles);
-
+    
+    %% Grey out undeveloped features
+%     set(handles.select_batch_file_path,'Enable','off') 
+%     set(handles.batch_upload_start,'Enable','off') 
+%     set(handles.batch_upload_path,'Enable','off') 
+    set(handles.database_cleanup,'Enable','off') 
+    
 function varargout = vmatqatool_OutputFcn(hObject, eventdata, handles) 
 
     % Get default command line output from handles structure
@@ -52,7 +58,7 @@ function select_patient_Callback(hObject, eventdata, handles) %#ok<*DEFNU>
     MC_filename = dir(strcat(root_path,'\','mc*.txt'));
      if length(MC_filename) > 1;
          close(h)
-         h = msgbox('Measured Dose File is ambiguous, aborted loading');
+         h = msgbox('Measured Dose File is ambiguous, aborted loading.');
          return
      end
   end
@@ -77,18 +83,22 @@ function select_patient_Callback(hObject, eventdata, handles) %#ok<*DEFNU>
      if isempty(MC_filename) == 1
          set(handles.mc_okay_check,'string','NOT FOUND');
          set(handles.compute_gamma_analysis,'Enable','off')
+         set(handles.upload_measurement_only,'Enable','off')
      else
          set(handles.mc_okay_check,'string',MC_filename.name);
-          set(handles.compute_gamma_analysis,'Enable','on')
+         set(handles.compute_gamma_analysis,'Enable','on')
+         set(handles.upload_measurement_only,'Enable','on')
      end
  
  TPS_file     = strcat(root_path, TPS_filename.name);
      if isempty(TPS_filename) == 1
          set(handles.RD_okay_check,'string','NOT FOUND');
          set(handles.compute_gamma_analysis,'Enable','off')
+         set(handles.upload_measurement_only,'Enable','off')
      else
          set(handles.RD_okay_check,'string',TPS_filename.name);
          set(handles.compute_gamma_analysis,'Enable','on')
+         set(handles.upload_measurement_only,'Enable','on')
      end
  
  RP_file      = strcat(root_path, RP_filename.name);
@@ -112,8 +122,14 @@ function select_patient_Callback(hObject, eventdata, handles) %#ok<*DEFNU>
      end
      
  if no_excel_flag == 0
+     
      [~,~,raw]    = xlsread(xcl_file, 'MapPhan dose scaled', 'B3:D33');
-
+       
+     plan_name = cell2mat(raw(3,1));
+     if isempty(plan_name) == 1 || isnumeric(plan_name) == 1
+        plan_name = 'unknown';
+     end
+    
      dose_scaling = double(cell2mat(raw(13,2)));
 
      ind_C        = find(strcmp(raw,'CTX')==1);
@@ -133,6 +149,8 @@ function select_patient_Callback(hObject, eventdata, handles) %#ok<*DEFNU>
      machine_name = char(machine_name);
      set(handles.machine_name,'string',machine_name);
      set(handles.scaling_factor,'string',num2str(dose_scaling));
+     set(handles.plan_name,'string',plan_name);
+     
      guidata(hObject, handles);
      close(h)
  else
@@ -159,11 +177,16 @@ function select_database_path_Callback(hObject, eventdata, handles)
 function select_batch_file_path_Callback(hObject, eventdata, handles)
 
     [path] = uigetdir('J:\PhysicsDosimetry\Eclipse TPS\Patient Specific QA');
-    handles.path = strcat(path,'\');
-    set(handles.patient_root_path,'string',handles.path);
+    handles.batch_path = strcat(path,'\');
+    set(handles.batch_upload_path,'string',handles.batch_path);
+    d = dir(handles.batch_path);
+    isub = [d(:).isdir]; %# returns logical vector
+    folders = {d(isub).name}';
+    folders(ismember(folders,{'.','..','ArcCHECK do not remove','Cal files','Pending Upload'})) = [];
+    h = msgbox(['Folders to Upload:'; folders]);
+    handles.folders = folders;
     guidata(hObject, handles);
-
-    
+   
 %--------------------------------------------------------------------------
 % Call display boxes for associated paths
 %--------------------------------------------------------------------------
@@ -198,15 +221,8 @@ function batch_upload_path_CreateFcn(hObject, eventdata, handles)
 function compute_gamma_analysis_Callback(hObject, eventdata, handles)
 
    root_path = get(handles.patient_root_path,'string'); 
-TPS_filename = dir(strcat(root_path,'\','RD*.dcm'));
- MC_filename = dir(strcat(root_path,'\','*.txt'));
- 
- if length(MC_filename) > 1;
-    MC_filename = dir(strcat(root_path,'\','mc*.txt'));
- end
-
-    MC_file  = strcat(root_path, MC_filename.name);
-    TPS_file = strcat(root_path, TPS_filename.name);
+     MC_file = strcat(root_path, get(handles.mc_okay_check,'string'));
+    TPS_file = strcat(root_path, get(handles.RD_okay_check,'string'));
 
      machine_name = get(handles.machine_name,'string');
      dose_scaling = str2double(get(handles.scaling_factor,'string'));
@@ -237,6 +253,8 @@ TPS_filename = dir(strcat(root_path,'\','RD*.dcm'));
     hold on
     ind = find(gamma(:,1)>1);
     scatter(gamma(ind,3),gamma(ind,2),10,'r','fill')
+    xlabel('Gamma Map')
+    ylabel('')
 
     data_qaresults{1,2} = DTA;
     data_qaresults{1,1} = 'DTA';
@@ -271,18 +289,16 @@ TPS_filename = dir(strcat(root_path,'\','RD*.dcm'));
 
     data_qaresults{10,2} = machine_name;
     data_qaresults{10,1} = 'Machine Name';
-
+    
     set(handles.display_table,'data',data_qaresults,'ColumnName',{'Parameter','Value'})
      
 function compute_plan_metrics_Callback(hObject, eventdata, handles)
-
-          h = msgbox('Opening Files...');
- set(findobj(h,'style','pushbutton'),'Visible','off')
-  root_path = get(handles.patient_root_path,'string'); 
-RP_filename = dir(strcat(root_path,'\','RP*.dcm'));
-    RP_file = strcat(root_path, RP_filename.name);
-       info = dicominfo(RP_file);
-   numbeams = info.FractionGroupSequence.Item_1.NumberOfBeams;
+          
+           h = msgbox('Opening Files...');
+   root_path = get(handles.patient_root_path,'string'); 
+     RP_file = strcat(root_path, get(handles.RP_okay_check,'string'));  
+        info = dicominfo(RP_file);
+    numbeams = info.FractionGroupSequence.Item_1.NumberOfBeams;
    
 
 [ data, ~, ~, ~, mech_stability ] = calc_fluence_map(RP_file);  
@@ -340,6 +356,30 @@ data = cell2mat(query);
 
 close(conn)
 
+if isempty(data) == 1
+    data = transpose(data_planmetrics);
+    data(:,2) = data;
+    data{1,1} = 'Number of Beams';
+    data{2,1} = '% MU Large Leaves';
+    data{3,1} = 'Plan Area';
+    data{4,1} = 'Plan Modulation';
+    data{5,1} = 'Plan Irregularity';
+    data{6,1} = 'Plan Area Gantry Weighted';
+    data{7,1} = 'Total MU';
+    data{8,1} = 'Modulation Type';
+    data{9,1} = 'FS X';
+    data{10,1} = 'FS Y';
+    data{11,1} = 'MU/degree';
+    data{12,1} = 'Bank A mm/MU';
+    data{13,1} = 'Bank B mm/MU';
+    data{14,1} = 'Figure of Merit';
+    data{15,1} = 'Estimated GPR';
+    data{15,2} = 'No Data Avail';
+    set(handles.display_table,'data',data,'ColumnName',{'Parameter','Value'})
+    close(h)
+    return
+end
+
 cla(handles.display_graph,'reset')
 axes(handles.display_graph);
 unfreezeColors;
@@ -359,7 +399,7 @@ ynew = data_planmetrics{1,14};
 xfit = polyval(p,ynew);
 scatter(xfit,ynew,'r','fill');
 xlabel('GPR (%)')
-ylabel('Specifier Value')
+ylabel('Figure of Merit')
 data_planmetrics{1,15} = xfit;
 
 data = transpose(data_planmetrics);
@@ -378,7 +418,7 @@ data{10,1} = 'FS Y';
 data{11,1} = 'MU/degree';
 data{12,1} = 'Bank A mm/MU';
 data{13,1} = 'Bank B mm/MU';
-data{14,1} = 'Specifier Value';
+data{14,1} = 'Figure of Merit';
 data{15,1} = 'Estimated GPR';
             
 set(handles.display_table,'data',data,'ColumnName',{'Parameter','Value'})
@@ -389,42 +429,60 @@ function upload_plan_metrics_only_Callback(hObject, eventdata, handles)
        root_path = get(handles.patient_root_path,'string'); 
      destination = get(handles.destination_root_path,'string'); 
           dbpath = get(handles.database_path,'string');
-     RP_filename = dir(strcat(root_path,'\','RP*.dcm'));
-      
-         RP_file = strcat(root_path, RP_filename.name);
-         
-     data_input_plan_only(root_path, destination, RP_file, dbpath)
+         RP_file = strcat(root_path, get(handles.RP_okay_check,'string'));  
 
+ data_input_plan_only(root_path, destination, RP_file, dbpath)
+
+function upload_measurement_only_Callback(hObject, eventdata, handles)
+      
+       root_path = get(handles.patient_root_path,'string'); 
+     destination = get(handles.destination_root_path,'string'); 
+          dbpath = get(handles.database_path,'string');
+         MC_file = strcat(root_path, get(handles.mc_okay_check,'string'));
+        TPS_file = strcat(root_path, get(handles.RD_okay_check,'string'));
+        
+       plan_name = get(handles.plan_name,'string');
+       machine_name = get(handles.machine_name,'string');
+    dose_scaling = str2double(get(handles.scaling_factor,'string'));
+    
+     name = plan_name;
+     name = strrep(name,'/','-');
+     name = strrep(name,'\','-');
+     name = strrep(name,'#','-');
+     name = strrep(name,'.','-');
+     name = strrep(name,':','-');
+   
+ data_input_measurement_only(root_path, destination, MC_file, TPS_file, plan_name, name, machine_name, dose_scaling, dbpath);       
+        
 function upload_to_database_Callback(hObject, eventdata, handles)
 
        root_path = get(handles.patient_root_path,'string'); 
      destination = get(handles.destination_root_path,'string'); 
           dbpath = get(handles.database_path,'string');
-    TPS_filename = dir(strcat(root_path,'\','RD*.dcm'));
-     RP_filename = dir(strcat(root_path,'\','RP*.dcm'));
-     MC_filename = dir(strcat(root_path,'\','*.txt'));
-        xcl_file = handles.xcl_file;
-        
-     if length(MC_filename) > 1;
-        MC_filename = dir(strcat(root_path,'\','mc*.txt'));
-     end
- 
-         MC_file = strcat(root_path, MC_filename.name);
-        TPS_file = strcat(root_path, TPS_filename.name);
-         RP_file = strcat(root_path, RP_filename.name);
+         RP_file = strcat(root_path, get(handles.RP_okay_check,'string'));
+         MC_file = strcat(root_path, get(handles.mc_okay_check,'string'));
+        TPS_file = strcat(root_path, get(handles.RD_okay_check,'string'));
+       plan_name = get(handles.plan_name,'string');
     machine_name = get(handles.machine_name,'string');
     dose_scaling = str2double(get(handles.scaling_factor,'string'));
+    
+     name = plan_name;
+     name = strrep(name,'/','-');
+     name = strrep(name,'\','-');
+     name = strrep(name,'#','-');
+     name = strrep(name,'.','-');
+     name = strrep(name,':','-');
+   
 
-        data_input_gui(root_path, destination, MC_file, TPS_file, RP_file, xcl_file, machine_name, dose_scaling, dbpath);                 
+    data_input_gui(root_path, destination, MC_file, TPS_file, RP_file, plan_name, name, machine_name, dose_scaling, dbpath);                 
     
 function batch_upload_start_Callback(hObject, eventdata, handles)
 
-
-   root_path = get(handles.batch_upload_path,'string'); 
+  batch_path = get(handles.batch_upload_path,'string'); 
  destination = get(handles.destination_root_path,'string'); 
       dbpath = get(handles.database_path,'string');
-      
-      data_input_gui_batch(root_path, destination, dbpath);
+     folders = handles.folders; 
+ data_input_gui_batch(batch_path, folders, destination, dbpath);
            
 function database_cleanup_Callback(hObject, eventdata, handles)
 
@@ -474,4 +532,10 @@ end
     
 function machine_name_Callback(hObject, eventdata, handles)    
     
+function plan_name_Callback(hObject, eventdata, handles)
 
+function plan_name_CreateFcn(hObject, eventdata, handles)
+
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end

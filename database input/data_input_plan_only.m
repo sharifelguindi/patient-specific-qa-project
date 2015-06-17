@@ -27,7 +27,7 @@ function [ ] = data_input_plan_only(root_path, destination, RP_file, dbpath)
                         D = C(1,1:end-1);
                  pathname = strjoin(D,'\');
           fluencemap_path = [pathname,'\planmetrics\'];
-       failed_destination = 'H:\imrtraw\plan_failed\';
+ 
  
     %% Pull DICOM information
     
@@ -82,7 +82,6 @@ function [ ] = data_input_plan_only(root_path, destination, RP_file, dbpath)
     
     conn = database(dbpath,username,pwd,obj,URL);
     eval(['RTplanID = fetch(conn,''SELECT RTplanID FROM RTplans WHERE plan_UID=','"',plan_UID_plan,'"',''');']);
-    RTplanID
       if isempty(RTplanID) == 1
         insert(conn,tablename_RTplans,colnames_RTplans,data_RTplan);
         close(conn)
