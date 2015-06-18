@@ -29,9 +29,6 @@ function vmatqatool_OpeningFcn(hObject, eventdata, handles, varargin) %#ok<*INUS
     guidata(hObject, handles);
     
     %% Grey out undeveloped features
-%     set(handles.select_batch_file_path,'Enable','off') 
-%     set(handles.batch_upload_start,'Enable','off') 
-%     set(handles.batch_upload_path,'Enable','off') 
     set(handles.database_cleanup,'Enable','off') 
     
 function varargout = vmatqatool_OutputFcn(hObject, eventdata, handles) 
@@ -432,7 +429,13 @@ function upload_plan_metrics_only_Callback(hObject, eventdata, handles)
          RP_file = strcat(root_path, get(handles.RP_okay_check,'string'));  
 
  data_input_plan_only(root_path, destination, RP_file, dbpath)
-
+ 
+    set(handles.upload_plan_metrics_only,'Enable','off')
+    set(handles.upload_to_database,'Enable','off')
+    set(handles.upload_measurement_only,'Enable','off')
+    set(handles.compute_plan_metrics,'Enable','off')
+    set(handles.compute_gamma_analysis,'Enable','off')
+    
 function upload_measurement_only_Callback(hObject, eventdata, handles)
       
        root_path = get(handles.patient_root_path,'string'); 
@@ -452,7 +455,13 @@ function upload_measurement_only_Callback(hObject, eventdata, handles)
      name = strrep(name,'.','-');
      name = strrep(name,':','-');
    
- data_input_measurement_only(root_path, destination, MC_file, TPS_file, plan_name, name, machine_name, dose_scaling, dbpath);       
+ data_input_measurement_only(root_path, destination, MC_file, TPS_file, plan_name, name, machine_name, dose_scaling, dbpath); 
+ 
+    set(handles.upload_plan_metrics_only,'Enable','off')
+    set(handles.upload_to_database,'Enable','off')
+    set(handles.upload_measurement_only,'Enable','off')
+    set(handles.compute_plan_metrics,'Enable','off')
+    set(handles.compute_gamma_analysis,'Enable','off')
         
 function upload_to_database_Callback(hObject, eventdata, handles)
 
@@ -474,7 +483,13 @@ function upload_to_database_Callback(hObject, eventdata, handles)
      name = strrep(name,':','-');
    
 
-    data_input_gui(root_path, destination, MC_file, TPS_file, RP_file, plan_name, name, machine_name, dose_scaling, dbpath);                 
+    data_input_gui(root_path, destination, MC_file, TPS_file, RP_file, plan_name, name, machine_name, dose_scaling, dbpath);     
+    
+    set(handles.upload_plan_metrics_only,'Enable','off')
+    set(handles.upload_to_database,'Enable','off')
+    set(handles.upload_measurement_only,'Enable','off')
+    set(handles.compute_plan_metrics,'Enable','off')
+    set(handles.compute_gamma_analysis,'Enable','off')
     
 function batch_upload_start_Callback(hObject, eventdata, handles)
 
